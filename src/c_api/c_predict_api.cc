@@ -462,7 +462,7 @@ int MXPredForward(PredictorHandle handle) {
   _CreateExecutor(handle);
   MXAPIPredictor* p = static_cast<MXAPIPredictor*>(handle);
   API_BEGIN();
-  p->exec->Forward(false);
+  p->exec->Forward(false, false);
   API_END();
 }
 
@@ -470,7 +470,7 @@ int MXPredPartialForward(PredictorHandle handle, int step, int* step_left) {
   _CreateExecutor(handle);
   MXAPIPredictor* p = static_cast<MXAPIPredictor*>(handle);
   API_BEGIN();
-  p->exec->PartialForward(false, step, step_left);
+  p->exec->PartialForward(false, false, step, step_left);
   API_END();
 }
 

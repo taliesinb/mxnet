@@ -58,7 +58,7 @@ class Executor {
    * \brief Perform a Forward operation of Operator
    *  After this operation, user can get the result by using function head.
    */
-  virtual void Forward(bool is_train) = 0;
+  virtual void Forward(bool is_train, bool need_grad) = 0;
   /*!
    * \brief Perform a Partial Forward operation of Operator.
    *  Only issue operation specified by step.
@@ -67,7 +67,7 @@ class Executor {
    * \param step current step, user can always start from 0
    * \param step_left Number of steps left to finish the forward.
    */
-  virtual void PartialForward(bool is_train, int step, int *step_left) = 0;
+  virtual void PartialForward(bool is_train, bool need_grad, int step, int *step_left) = 0;
   /*!
    * \brief Perform a Backward operation of the Operator.
    *  This must be called after Forward.

@@ -60,8 +60,8 @@ class GraphExecutor : public Executor {
 
   GraphExecutor();
   virtual ~GraphExecutor();
-  void Forward(bool is_train) override;
-  void PartialForward(bool is_train, int step, int *step_left) override;
+  void Forward(bool is_train, bool need_grad) override;
+  void PartialForward(bool is_train, bool need_grad, int step, int *step_left) override;
   void Backward(const std::vector<NDArray> &head_grads, bool is_train = true) override;
   const std::vector<NDArray>& outputs() const override;
   const std::unordered_map<std::string, NDArray>& in_arg_map() const override;
@@ -200,7 +200,7 @@ class GraphExecutor : public Executor {
   // shared_pool: extra memory shared from other parts
   void InitDataEntryMemory(std::vector<NDArray>* shared_pool);
   // run ops from topo order start to end
-  void RunOps(bool is_train, size_t topo_start, size_t topo_end);
+  void RunOps(bool is_train, bool need_grad, size_t topo_start, size_t topo_end);
   /*!
    * \brief Try to create a cached operator to run segments between start and end
    * \param topo_start beginning of segment

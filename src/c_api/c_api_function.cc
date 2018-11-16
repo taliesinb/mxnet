@@ -112,9 +112,9 @@ void Backward(const OpStatePtr& state,
           params.info->callbacks[kCustomFunctionBackward])(
               inputs.size(), outputs.size(),
               const_cast<NDArrayHandle*>(ptrs.data()),
-              reinterpret_cast<const int*>(req.data()), ctx.is_train,
+              reinterpret_cast<const int*>(req.data()), ctx.need_grad,
               params.info->contexts[kCustomFunctionBackward]));
-    }, ctx, false, ctx.is_train, cpys, tags, output_tags, outputs);
+    }, ctx, false, ctx.need_grad, cpys, tags, output_tags, outputs);
 }
 
 inline bool InferStorageType(const nnvm::NodeAttrs& attrs, const int dev_mask,

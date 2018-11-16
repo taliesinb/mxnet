@@ -61,16 +61,16 @@ GraphExecutor::~GraphExecutor() {
   }
 }
 
-void GraphExecutor::Forward(bool is_train) {
-  RunOps(is_train, 0, num_forward_nodes_);
+void GraphExecutor::Forward(bool is_train, bool need_grad) {
+  RunOps(is_train, need_grad, 0, num_forward_nodes_);
 }
 
-void GraphExecutor::PartialForward(bool is_train, int step, int *step_left) {
+void GraphExecutor::PartialForward(bool is_train, bool need_grad, int step, int *step_left) {
   size_t sstep = static_cast<size_t>(step);
   if (sstep >= num_forward_nodes_) {
     *step_left = 0; return;
   }
-  RunOps(is_train, sstep, sstep + 1);
+  RunOps(is_train, need_grad, sstep, sstep + 1);
   *step_left = static_cast<int>(num_forward_nodes_ - sstep - 1);
 }
 
@@ -89,7 +89,7 @@ void GraphExecutor::Backward(const std::vector<NDArray>& head_grads, bool is_tra
       }
     }
   }
-  RunOps(is_train, num_forward_nodes_, idx.num_nodes());
+  RunOps(is_train, true, num_forward_nodes_, idx.num_nodes());
 }
 
 void GraphExecutor::Print(std::ostream &os) const {  // NOLINT(*)
@@ -1315,7 +1315,7 @@ void GraphExecutor::ExecuteMonCallback(size_t nid) {
   }
 }
 
-void GraphExecutor::RunOps(bool is_train, size_t topo_start, size_t topo_end) {
+void GraphExecutor::RunOps(bool is_train, bool need_grad, size_t topo_start, size_t topo_end) {
   // Update context
   const auto& idx = graph_.indexed_graph();
   for (size_t nid = topo_start; nid < topo_end; ++nid) {
@@ -1324,7 +1324,8 @@ void GraphExecutor::RunOps(bool is_train, size_t topo_start, size_t topo_end) {
     const auto& inode = idx[nid];
     if (inode.source->is_variable()) continue;
     opnode.exec->op_ctx.is_train = is_train;
-    opnode.exec->op_ctx.need_grad = need_grad_;
+    opnode.exec->op_ctx.need_grad = need_grad_ && need_grad;
+    // only compute grads if they are requested *and* required
   }
 
   // Push Ops
@@ -1343,6 +1344,8 @@ void GraphExecutor::RunOps(bool is_train, size_t topo_start, size_t topo_end) {
     OpNode& opnode = op_nodes_[nid];
     if (op_nodes_[nid].skip_exec_node) continue;
     opnode.exec->op_ctx.is_train = is_train;
+    // ideally, the need_grad flag would be customized for each operator based on whether it has
+    // any non-null gradient requests on it. 
     opnode.exec->op_ctx.need_grad = need_grad_;
     if (opnode.exec->exec_type() == ExecType::kCrossDeviceCopy) {
       CHECK_EQ(inode.inputs.size(), 1U);
