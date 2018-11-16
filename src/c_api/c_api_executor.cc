@@ -55,6 +55,13 @@ int MXExecutorForward(ExecutorHandle handle, int is_train) {
   API_END();
 }
 
+int MXExecutorForwardEx(ExecutorHandle handle, int is_train, int need_grad) {
+  API_BEGIN();
+  Executor *exec = static_cast<Executor*>(handle);
+  exec->Forward(is_train != 0, need_grad != 0);
+  API_END();
+}
+
 int MXExecutorBackward(ExecutorHandle handle,
                        mx_uint len,
                        NDArrayHandle *head_grads) {

@@ -1614,6 +1614,15 @@ MXNET_DLL int MXExecutorPrint(ExecutorHandle handle, const char **out_str);
  */
 MXNET_DLL int MXExecutorForward(ExecutorHandle handle, int is_train);
 /*!
+ * \brief Executor forward method
+ *
+ * \param handle executor handle
+ * \param is_train int value to indicate whether the forward pass is for evaluation
+ * \param need_grad int value to indicate whether MXExecutorBackward will be called after
+ * \return 0 when success, -1 when failure happens
+ */
+MXNET_DLL int MXExecutorForwardEx(ExecutorHandle handle, int is_train, int need_grad);
+/*!
  * \brief Excecutor run backward
  *
  * \param handle execute handle
