@@ -32,12 +32,12 @@ namespace op {
 
 inline static mkldnn::inner_product_forward::primitive_desc GetIPFwd(
     const NDArray &data, const NDArray &weight, const NDArray *bias,
-    const mkldnn::memory::desc &out_md, const bool is_train) {
+    const mkldnn::memory::desc &out_md, const bool need_grad) {
   auto data_md = GetMemDesc(data);
   auto weight_md = GetMemDesc(weight);
   auto engine = CpuEngine::Get()->get_engine();
   auto propagation =
-    is_train ? mkldnn::prop_kind::forward_training : mkldnn::prop_kind::forward_scoring;
+    need_grad ? mkldnn::prop_kind::forward_training : mkldnn::prop_kind::forward_scoring;
   if (bias) {
     auto bias_md = GetMemDesc(*bias);
     mkldnn::inner_product_forward::desc ipFwd_desc(propagation,
@@ -92,11 +92,11 @@ class MKLDNNFullyConnectForward {
  public:
   mkldnn::inner_product_forward::primitive_desc ipFwd_pd;
 
-  MKLDNNFullyConnectForward(const FullyConnectedParam &param, bool is_train,
+  MKLDNNFullyConnectForward(const FullyConnectedParam &param, bool need_grad,
                             const NDArray &data, const NDArray &weight,
                             const NDArray *bias,
                             const mkldnn::memory::desc &output)
-      : ipFwd_pd(GetIPFwd(data, weight, bias, output, is_train)) {}
+      : ipFwd_pd(GetIPFwd(data, weight, bias, output, need_grad)) {}
 
   void SetNewMem(const mkldnn::memory &data, const mkldnn::memory &weight,
                  const mkldnn::memory *bias, const mkldnn::memory &output) {
@@ -147,7 +147,7 @@ typedef ParamOpSign<FullyConnectedParam> MKLDNNFullyconSignature;
 static inline MKLDNNFullyConnectForward &GetFCFwd(
     const nnvm::NodeAttrs &attrs, const NDArray &data, const NDArray &weight,
     const NDArray *bias, const mkldnn::memory::desc &output,
-    const bool is_train) {
+    const bool need_grad) {
 #if DMLC_CXX11_THREAD_LOCAL
   static thread_local std::unordered_map<MKLDNNFullyconSignature,
               MKLDNNFullyConnectForward, OpHash> fcFwds;
@@ -159,14 +159,14 @@ static inline MKLDNNFullyConnectForward &GetFCFwd(
   MKLDNNFullyconSignature key(param);
   key.AddSign(data);
   key.AddSign(weight);
-  key.AddSign(is_train);
+  key.AddSign(need_grad);
 
   if (bias)
     key.AddSign(*bias);
 
   auto it = fcFwds.find(key);
   if (it == fcFwds.end()) {
-    MKLDNNFullyConnectForward fcFwd(param, is_train, data, weight, bias,
+    MKLDNNFullyConnectForward fcFwd(param, need_grad, data, weight, bias,
                                     output);
     auto ins_ret = fcFwds.insert(
         std::pair<MKLDNNFullyconSignature, MKLDNNFullyConnectForward>(key, fcFwd));
@@ -208,7 +208,7 @@ void MKLDNNFCForward(const nnvm::NodeAttrs& attrs, const OpContext &ctx,
   }
   MKLDNNFullyConnectForward &FCFwd =
       GetFCFwd(attrs, data, weight, param.no_bias ? nullptr : &in_data[fullc::kBias],
-               out_md, ctx.is_train);
+               out_md, ctx.need_grad);
   auto data_mem = data.GetMKLDNNDataReorder(FCFwd.ipFwd_pd.src_primitive_desc());
   auto weight_mem = weight.GetMKLDNNDataReorder(FCFwd.ipFwd_pd.weights_primitive_desc());
   auto out_mem = CreateMKLDNNMem(out_data[fullc::kOut],
@@ -252,7 +252,7 @@ void MKLDNNFCBackward(const nnvm::NodeAttrs& attrs, const OpContext &ctx,
                                              oshape.ProdShape(1, oshape.ndim())));
 
   mkldnn::inner_product_forward::primitive_desc ipFwd_pd = GetIPFwd(data, weight,
-      param.no_bias ? nullptr : &in_grad[fullc::kBias], GetMemDesc(out_grad), ctx.is_train);
+      param.no_bias ? nullptr : &in_grad[fullc::kBias], GetMemDesc(out_grad), ctx.need_grad);
 
   CHECK_NE(req[fullc::kWeight], kWriteInplace) << "cannot write weight inplace";
   if (req[fullc::kData]) {

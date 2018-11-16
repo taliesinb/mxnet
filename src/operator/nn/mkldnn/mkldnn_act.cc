@@ -68,7 +68,7 @@ static inline mkldnn::algorithm GetMKLDNNActAlgo(const ActivationParam& param) {
 typedef std::shared_ptr<mkldnn::eltwise_forward::primitive_desc> mkldnn_act_pdesc_ptr;
 
 static mkldnn::eltwise_forward::primitive_desc GetActFwdDescImpl(
-    const ActivationParam& param, bool is_train,
+    const ActivationParam& param, bool need_grad,
     const mkldnn::memory &input_mem, int dtype) {
   mkldnn::memory::primitive_desc data_mpd = input_mem.get_primitive_desc();
   mkldnn::memory::desc data_md = data_mpd.desc();
@@ -77,7 +77,7 @@ static mkldnn::eltwise_forward::primitive_desc GetActFwdDescImpl(
   auto alg = GetMKLDNNActAlgo(param);
   MSHADOW_REAL_TYPE_SWITCH(dtype, DType, {
     DType alpha = 0;
-    mkldnn::eltwise_forward::desc desc = is_train
+    mkldnn::eltwise_forward::desc desc = need_grad
         ? mkldnn::eltwise_forward::desc(mkldnn::prop_kind::forward_training,
                                         alg, data_md, alpha)
         : mkldnn::eltwise_forward::desc(mkldnn::prop_kind::forward_scoring,
@@ -100,9 +100,9 @@ class MKLDNNActForward {
  public:
   const mkldnn::eltwise_forward::primitive_desc fwd_pd;
 
-  MKLDNNActForward(const ActivationParam& param, bool is_train,
+  MKLDNNActForward(const ActivationParam& param, bool need_grad,
                    const NDArray &data, const mkldnn::memory &mem): fwd_pd(
-                       GetActFwdDescImpl(param, is_train, mem, data.dtype())) {
+                       GetActFwdDescImpl(param, need_grad, mem, data.dtype())) {
   }
 
   void SetNewMem(const mkldnn::memory &data, const mkldnn::memory &output) {
@@ -140,13 +140,13 @@ static MKLDNNActForward &GetActForward(const ActivationParam& param,
   static MX_THREAD_LOCAL std::unordered_map<MKLDNNActSignature, MKLDNNActForward, OpHash> fwds;
 #endif
   MKLDNNActSignature key(param);
-  key.AddSign(ctx.is_train);
+  key.AddSign(ctx.need_grad);
   key.AddSign(param.act_type);
   key.AddSign(in_data);
 
   auto it = fwds.find(key);
   if (it == fwds.end()) {
-    MKLDNNActForward fwd(param, ctx.is_train, in_data, in_mem);
+    MKLDNNActForward fwd(param, ctx.need_grad, in_data, in_mem);
     auto ins_ret = fwds.insert(std::pair<MKLDNNActSignature, MKLDNNActForward>(
             key, fwd));
     CHECK(ins_ret.second);

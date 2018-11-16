@@ -54,10 +54,10 @@ void MKLDNNPoolingFwd::Init(const mxnet::NDArray &input, const mxnet::NDArray &o
   }
 
   mkldnn::prop_kind prop = mkldnn::prop_kind::forward_scoring;
-  if (this->is_train_ && alg_kind != mkldnn::algorithm::pooling_avg) {
+  if (need_grad && alg_kind != mkldnn::algorithm::pooling_avg) {
     prop = mkldnn::prop_kind::forward_training;
   }
-  if (this->is_train_ && prop == mkldnn::prop_kind::forward_scoring) {
+  if (need_grad && prop == mkldnn::prop_kind::forward_scoring) {
     LOG(INFO) << "MKLDNN Pooling: training with prop_kind is forward_scoring";
   }
 
@@ -135,7 +135,7 @@ mkldnn::algorithm GetMKLDNNPoolAlgo(const PoolingParam &param) {
 }
 
 mkldnn::pooling_forward::primitive_desc GetPoolingFwdPdesc(
-    const PoolingParam &param, const bool is_train, const memory::desc &data_md,
+    const PoolingParam &param, const bool need_grad, const memory::desc &data_md,
     const memory::desc &out_md) {
   CHECK_EQ(param.kernel.ndim(), 2) << "Not Implemented";
   int kernel_h_, kernel_w_;
@@ -170,7 +170,7 @@ mkldnn::pooling_forward::primitive_desc GetPoolingFwdPdesc(
 
   const mkldnn::algorithm alg = GetMKLDNNPoolAlgo(param);
   mkldnn::prop_kind kind = mkldnn::prop_kind::forward_scoring;
-  if (is_train && alg != algorithm::pooling_avg) {
+  if (need_grad && alg != algorithm::pooling_avg) {
     kind = mkldnn::prop_kind::forward_training;
   }
 
@@ -187,7 +187,7 @@ mkldnn::pooling_forward::primitive_desc GetPoolingFwdPdesc(
 }
 
 MKLDNNPoolingFwd &GetPoolingFwd(const PoolingParam &param,
-                                const bool is_train,
+                                const bool need_grad,
                                 const NDArray &data,
                                 const NDArray &output) {
 #if DMLC_CXX11_THREAD_LOCAL
@@ -200,9 +200,9 @@ MKLDNNPoolingFwd &GetPoolingFwd(const PoolingParam &param,
                                             OpHash> pooling_fwds;
 #endif
 
-  bool with_workspace = is_train && MKLDNNRequireWorkspace(param);
+  bool with_workspace = need_grad && MKLDNNRequireWorkspace(param);
   MKLDNNPoolingSignature key(param);
-  key.AddSign(is_train);
+  key.AddSign(need_grad);
   key.AddSign(with_workspace);
   key.AddSign(data);
   key.AddSign(output);
@@ -242,7 +242,7 @@ MKLDNNPoolingFwd &GetPoolingFwd(const PoolingParam &param,
 
     const mkldnn::algorithm alg = GetMKLDNNPoolAlgo(param);
     MKLDNNPoolingFwd fwd(data, output, kernel_h_, kernel_w_, stride_h_, stride_w_,
-                         pad_t_, pad_b_, pad_l_, pad_r_, alg, with_workspace, is_train);
+                         pad_t_, pad_b_, pad_l_, pad_r_, alg, with_workspace, need_grad);
     auto ins_ret = pooling_fwds.insert(
         std::pair<MKLDNNPoolingSignature, MKLDNNPoolingFwd>(key, fwd));
     CHECK(ins_ret.second);
@@ -254,7 +254,7 @@ MKLDNNPoolingFwd &GetPoolingFwd(const PoolingParam &param,
 void MKLDNNPoolingCompute(const OpContext &ctx, const PoolingParam &param,
                           const NDArray &in_data, const OpReqType req,
                           const NDArray &out_data, const NDArray *workspace) {
-  auto &fwd = GetPoolingFwd(param, ctx.is_train, in_data, out_data);
+  auto &fwd = GetPoolingFwd(param, ctx.need_grad, in_data, out_data);
   fwd.SetNewMem(in_data, out_data, req, workspace);
   fwd.Execute(out_data);
 }

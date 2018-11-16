@@ -44,7 +44,7 @@ static void MKLDNNQuantizedConvForward(const nnvm::NodeAttrs& attrs,
   NDArray weight = in_data[conv::kWeight];
   ConvolutionParam param = nnvm::get<ConvolutionParam>(attrs.parsed);
   auto &fwd = GetConvFwd(
-      param, ctx.is_train, in_data[conv::kData], in_data[conv::kWeight],
+      param, ctx.need_grad, in_data[conv::kData], in_data[conv::kWeight],
       param.no_bias ? nullptr : &in_data[conv::kBias],
       out_data[conv::kOut]);
   auto data_mem = in_data[conv::kData].GetMKLDNNDataReorder(fwd.fwd_pd.src_primitive_desc());

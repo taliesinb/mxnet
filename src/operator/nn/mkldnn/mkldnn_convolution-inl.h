@@ -86,7 +86,7 @@ static inline bool IsOutputUInt8(const MKLDNNConvParam &mkldnn_param) {
 }
 
 mkldnn::convolution_forward::primitive_desc
-GetConvFwdImpl(const MKLDNNConvFullParam &param, const bool is_train,
+GetConvFwdImpl(const MKLDNNConvFullParam &param, const bool need_grad,
                const NDArray &data, const NDArray &weights, const NDArray *bias,
                const NDArray &output);
 
@@ -94,10 +94,10 @@ class MKLDNNConvForward {
  public:
   mkldnn::convolution_forward::primitive_desc fwd_pd;
 
-  MKLDNNConvForward(const MKLDNNConvFullParam &param, const bool is_train,
+  MKLDNNConvForward(const MKLDNNConvFullParam &param, const bool need_grad,
                     const NDArray &data, const NDArray &weights,
                     const NDArray *bias, const NDArray &output)
-      : fwd_pd(GetConvFwdImpl(param, is_train, data, weights, bias, output)) {}
+      : fwd_pd(GetConvFwdImpl(param, need_grad, data, weights, bias, output)) {}
 
   void SetNewMem(const mkldnn::memory &data, const mkldnn::memory &weight,
                  const mkldnn::memory *bias, const mkldnn::memory &output);
@@ -117,7 +117,7 @@ class MKLDNNConvForward {
 typedef ParamOpSign<ConvolutionParam> MKLDNNConvSignature;
 
 MKLDNNConvForward &GetConvFwd(const ConvolutionParam &param,
-                              const bool is_train, const NDArray &data,
+                              const bool need_grad, const NDArray &data,
                               const NDArray &weights, const NDArray *bias,
                               const NDArray &output);
 

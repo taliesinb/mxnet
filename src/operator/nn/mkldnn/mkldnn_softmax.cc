@@ -51,7 +51,7 @@ void MKLDNNSoftmaxForward(const nnvm::NodeAttrs& attrs, const OpContext &ctx,
   int axis = CheckAxis(param.axis, in_data.shape().ndim());
 
   auto cpu_engine = data_mpd.get_engine();
-  auto prop = ctx.is_train
+  auto prop = ctx.need_grad
     ? mkldnn::prop_kind::forward_training : mkldnn::prop_kind::forward_scoring;
   mkldnn::softmax_forward::desc desc = mkldnn::softmax_forward::desc(prop,
       data_md, axis);

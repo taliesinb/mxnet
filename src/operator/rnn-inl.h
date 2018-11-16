@@ -452,7 +452,7 @@ class RNNOp : public Operator{
     Tensor<cpu, 1, DType> workspace = ctx.requested[rnn_enum::kTempSpace]
         .get_space_typed<cpu, 1, DType>(Shape1(workspace_size), s);
 
-    if (ctx.is_train) {
+    if (ctx.need_grad) {
       const size_t r_size = GetRNNReserveSpaceSize(param_.num_layers, direction,
                                                    param_.seq_length_, param_.batch_size_,
                                                    param_.state_size, param_.mode);

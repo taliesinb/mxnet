@@ -43,10 +43,10 @@ bool SupportMKLDNNConv(const ConvolutionParam& params, const NDArray &input) {
 }
 
 mkldnn::convolution_forward::primitive_desc GetConvFwdImpl(
-    const MKLDNNConvFullParam &param, const bool is_train,
+    const MKLDNNConvFullParam &param, const bool need_grad,
     const NDArray &data, const NDArray &weights, const NDArray *bias,
     const NDArray &output) {
-  auto prop = is_train ? mkldnn::prop_kind::forward_training : mkldnn::prop_kind::forward_scoring;
+  auto prop = need_grad ? mkldnn::prop_kind::forward_training : mkldnn::prop_kind::forward_scoring;
   auto data_md = GetMemDesc(data);
   auto weight_md = GetWeightDesc(weights, param.conv_param.num_group);
   auto out_md = GetMemDesc(output);
@@ -313,7 +313,7 @@ void MKLDNNConvForward::SetNewMem(const mkldnn::memory &data,
 }
 
 MKLDNNConvForward &GetConvFwd(const ConvolutionParam &param,
-                              const bool is_train, const NDArray &data,
+                              const bool need_grad, const NDArray &data,
                               const NDArray &weights, const NDArray *bias,
                               const NDArray &output) {
 #if DMLC_CXX11_THREAD_LOCAL
@@ -322,7 +322,7 @@ MKLDNNConvForward &GetConvFwd(const ConvolutionParam &param,
   static MX_THREAD_LOCAL std::unordered_map<MKLDNNConvSignature, MKLDNNConvForward, OpHash> fwds;
 #endif
   MKLDNNConvSignature key(param);
-  key.AddSign(is_train);
+  key.AddSign(need_grad);
   // Here we can sign the conv op with NDArray because conv primitive will
   // decide the right layout for the, so we only need to get the shape and the
   // data type of the arrays.
@@ -337,7 +337,7 @@ MKLDNNConvForward &GetConvFwd(const ConvolutionParam &param,
     MKLDNNConvFullParam full_param;
     full_param.conv_param = param;
     full_param.mkldnn_param.Init(std::unordered_map<std::string, std::string>());
-    MKLDNNConvForward fwd(full_param, is_train, data, weights, bias, output);
+    MKLDNNConvForward fwd(full_param, need_grad, data, weights, bias, output);
     auto ins_ret = fwds.insert(
         std::pair<MKLDNNConvSignature, MKLDNNConvForward>(key, fwd));
     CHECK(ins_ret.second);
@@ -358,7 +358,7 @@ void MKLDNNConvolutionForwardFullFeature(const MKLDNNConvFullParam &param,
   auto data_mem = in_data[conv::kData].GetMKLDNNDataReorder(
       fwd->fwd_pd.src_primitive_desc());
   const mkldnn::memory *weight_mem;
-  if (ctx.is_train) {
+  if (ctx.need_grad) {
     // TODO(zhengda) kvstore doesn't handle MKLDNN correctly. Let's reorder it
     // to the default format for now.
     if (weight.IsMKLDNNData())
@@ -411,7 +411,7 @@ void MKLDNNConvolutionForward(const nnvm::NodeAttrs &attrs,
   param.conv_param = nnvm::get<ConvolutionParam>(attrs.parsed);
   param.mkldnn_param.Init(std::unordered_map<std::string, std::string>());
   auto &fwd = GetConvFwd(
-      param.conv_param, ctx.is_train, in_data[conv::kData], in_data[conv::kWeight],
+      param.conv_param, ctx.need_grad, in_data[conv::kData], in_data[conv::kWeight],
       param.conv_param.no_bias ? nullptr : &in_data[conv::kBias],
       out_data[conv::kOut]);
   MKLDNNConvolutionForwardFullFeature(param, ctx, &fwd, in_data, req, out_data);
@@ -578,7 +578,7 @@ void MKLDNNConvolutionBackward(const nnvm::NodeAttrs& attrs, const OpContext &ct
   full_param.conv_param = nnvm::get<ConvolutionParam>(attrs.parsed);
   full_param.mkldnn_param.Init(std::unordered_map<std::string, std::string>());
   mkldnn::convolution_forward::primitive_desc fwd_pd = GetConvFwdImpl(
-      full_param, ctx.is_train, inputs[conv::kData + 1], inputs[conv::kWeight + 1],
+      full_param, ctx.need_grad, inputs[conv::kData + 1], inputs[conv::kWeight + 1],
       full_param.conv_param.no_bias ? nullptr : &inputs[conv::kBias + 1],
       inputs[conv::kOut]);
   const ConvolutionParam &param = full_param.conv_param;

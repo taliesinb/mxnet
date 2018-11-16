@@ -370,7 +370,7 @@ void SgMKLDNNConvOperator::Forward(const OpContext &ctx,
         full_conv_param.sum_scale = output_scale / sum_in_scale;
     }
     fwd_.reset(new MKLDNNConvForward(
-        full_conv_param, ctx.is_train, data, cached_weight_,
+        full_conv_param, ctx.need_grad, data, cached_weight_,
         has_bias ? &cached_bias_ : nullptr, output));
   }
   initalized_ = true;

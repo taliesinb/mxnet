@@ -154,7 +154,7 @@ class CuDNNRNNOp : public Operator {
       init_cudnn_ = false;
 
       Storage::Get()->Free(reserve_space_);
-      if (param_.p > 0) {
+      if (param_.p > 0 && ctx.is_train) {
         Storage::Get()->Free(dropout_states_);
       }
     }
@@ -231,7 +231,7 @@ class CuDNNRNNOp : public Operator {
                                          out_size,
                                          seqLengthArray.data(),
                                          nullptr));
-    if (ctx.is_train) {
+    if (ctx.need_grad) {
       CUDNN_CALL(cudnnSetRNNDataDescriptor(dx_data_desc_,
                                            dtype_,
                                            CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
@@ -262,7 +262,7 @@ class CuDNNRNNOp : public Operator {
                                clip_state ? param_.lstm_state_clip_max.value() : 0.0));
     #endif
 
-    if (ctx.is_train) {
+    if (ctx.need_grad) {
       #if USE_CUDNN_LSTM_PROJ
       CUDNN_CALL(cudnnRNNForwardTrainingEx(s->dnn_handle_,
                                            rnn_desc_,
@@ -696,7 +696,7 @@ class CuDNNRNNOp : public Operator {
                                             strideA));
 
       // Create Dropout descriptors
-      if (param_.p > 0) {
+      if (param_.p > 0 && ctx.is_train) {
         CUDNN_CALL(cudnnDropoutGetStatesSize(s->dnn_handle_, &dropout_byte_));
         dropout_size_ = dropout_byte_ / sizeof(DType);
         dropout_states_ = Storage::Get()->Alloc(dropout_byte_, Context::GPU());
@@ -705,7 +705,7 @@ class CuDNNRNNOp : public Operator {
         dropout_byte_ = 0;
       }
       CUDNN_CALL(cudnnSetDropoutDescriptor(dropout_desc_, s->dnn_handle_,
-                                           param_.p,  // discard probability
+                                           ctx.is_train ? param_.p : 0.0,  // discard probability
                                            dropout_states_.dptr, dropout_byte_,
                                            seed_));
       // RNN descriptors

@@ -43,8 +43,8 @@ class MKLDNNPoolingFwd {
                    const int padding_t, const int padding_b,
                    const int padding_l, const int padding_r,
                    const mkldnn::algorithm alg_kind,
-                   const bool with_workspace, const bool is_train) :
-                   is_train_(is_train),
+                   const bool with_workspace, const bool need_grad) :
+                   need_grad_(need_grad),
                    with_workspace_(with_workspace),
                    alg_kind_(alg_kind),
                    fwd_(nullptr), data_(nullptr), out_(nullptr), workspace_(nullptr) {
@@ -61,7 +61,7 @@ class MKLDNNPoolingFwd {
   void Execute(const NDArray& out_data);
 
  private:
-  bool is_train_;
+  bool need_grad_;
   bool with_workspace_;
   mkldnn::algorithm alg_kind_;
   std::shared_ptr<mkldnn::pooling_forward::primitive_desc> fwd_pd_;
@@ -143,7 +143,7 @@ void MKLDNNPoolingGradCompute(const OpContext &ctx, const PoolingParam &param,
                               const NDArray *workspace, const OpReqType req,
                               const NDArray &in_grad);
 MKLDNNPoolingFwd &GetPoolingFwd(const PoolingParam &param,
-                                const bool is_train,
+                                const bool need_grad,
                                 const NDArray &data,
                                 const NDArray &output);
 }  // namespace op
